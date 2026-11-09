@@ -1,17 +1,16 @@
-import ServiceManagement
+import NordvaDeskLampCore
 import SwiftUI
 
 struct LampPanel: View {
     @ObservedObject var lamp: Lamp
+    @ObservedObject var autopilot: Autopilot
+    let openSettings: () -> Void
     let quit: () -> Void
-
-    @State private var showSettings = false
-    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
-    @State private var loginError: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
+            scenes
             slider(
                 value: Binding(get: { lamp.brightness }, set: lamp.setBrightness),
                 range: Lamp.brightnessRange,
@@ -25,13 +24,10 @@ struct LampPanel: View {
                 label: "\(Int(lamp.temperature.rounded()))K"
             )
             .tint(.orange)
+            automationStatus
             Divider()
-            if showSettings {
-                settings
-                Divider()
-            }
             HStack {
-                Button(showSettings ? "Done" : "Settings…") { showSettings.toggle() }
+                Button("Settings…", action: openSettings)
                 Spacer()
                 Button("Quit", action: quit)
             }
@@ -71,6 +67,46 @@ struct LampPanel: View {
         }
     }
 
+    private var scenes: some View {
+        HStack(spacing: 6) {
+            ForEach([LightScene.work, .reading, .evening, .night], id: \.self) { scene in
+                Button {
+                    autopilot.select(scene)
+                } label: {
+                    VStack(spacing: 3) {
+                        Image(systemName: scene.symbol).font(.system(size: 14))
+                        Text(scene.title).font(.caption2)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .disabled(lamp.status != .online)
+    }
+
+    @ViewBuilder private var automationStatus: some View {
+        switch autopilot.mode {
+        case .off:
+            EmptyView()
+        case let .auto(phase):
+            Label("Auto: \(phase.title.lowercased()) light", systemImage: "clock")
+                .font(.caption).foregroundStyle(.secondary)
+        case let .manual(until):
+            HStack {
+                Label("Manual until \(until.formatted(date: .omitted, time: .shortened))", systemImage: "hand.raised")
+                Spacer()
+                Button("Back to auto") { autopilot.resumeAuto() }.buttonStyle(.borderless)
+            }
+            .font(.caption).foregroundStyle(.secondary)
+        case .call:
+            Label("Call light while the camera is on", systemImage: "video")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
     private func slider(
         value: Binding<Double>, range: ClosedRange<Double>, low: String, high: String, label: String
     ) -> some View {
@@ -85,47 +121,36 @@ struct LampPanel: View {
         }
         .disabled(lamp.status != .online)
     }
+}
 
-    private var settings: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Lamp address").font(.caption).foregroundStyle(.secondary)
-            HStack {
-                TextField("192.168.1.10 or name.local", text: $lamp.host)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit { lamp.refresh() }
-                Button("Connect") { lamp.refresh() }
-            }
-            Label(
-                lamp.hasToken ? "Token found in Keychain" : "No token in Keychain yet, see the README",
-                systemImage: lamp.hasToken ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
-            )
-            .font(.caption)
-            .foregroundStyle(lamp.hasToken ? Color.green : Color.orange)
-            VStack(alignment: .leading, spacing: 2) {
-                Toggle("Keep the menu bar icon up to date", isOn: $lamp.backgroundUpdates)
-                Text("Checks the lamp every 10 s while this panel is closed. Off: no traffic until you open it.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Toggle("Launch at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
-            if let loginError {
-                Text(loginError).font(.caption).foregroundStyle(.red)
-            }
+extension LightScene {
+    var title: String {
+        switch self {
+        case .work: return "Work"
+        case .reading: return "Reading"
+        case .evening: return "Evening"
+        case .night: return "Night"
+        case .call: return "Call"
         }
     }
 
-    private func setLaunchAtLogin(_ on: Bool) {
-        do {
-            if on {
-                try SMAppService.mainApp.register()
-            } else {
-                try SMAppService.mainApp.unregister()
-            }
-            loginError = nil
-        } catch {
-            loginError = error.localizedDescription
+    var symbol: String {
+        switch self {
+        case .work: return "laptopcomputer"
+        case .reading: return "book"
+        case .evening: return "sunset"
+        case .night: return "moon.stars"
+        case .call: return "video"
         }
-        launchAtLogin = SMAppService.mainApp.status == .enabled
+    }
+}
+
+extension DayPhase {
+    var title: String {
+        switch self {
+        case .day: return "Day"
+        case .evening: return "Evening"
+        case .night: return "Night"
+        }
     }
 }

@@ -4,6 +4,11 @@ let arguments = CommandLine.arguments
 Log.isEnabled = arguments.contains("--debug")
 
 let mode: AppDelegate.Mode
+if arguments.contains("--camera-check") {
+    print(CameraMonitor.describe())
+    exit(0)
+}
+
 if arguments.contains("--check") {
     mode = .check
 } else if let index = arguments.firstIndex(of: "--panel-snapshot"), arguments.indices.contains(index + 1) {

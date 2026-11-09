@@ -18,6 +18,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     private let mode: Mode
     private let lamp = Lamp()
+    private let prefs = Preferences()
+    private lazy var autopilot = Autopilot(lamp: lamp, prefs: prefs)
+    private lazy var settingsWindow = SettingsWindowController(lamp: lamp, prefs: prefs)
     private let popover = NSPopover()
     private var statusItem: NSStatusItem?
     private var iconUpdates: AnyCancellable?
@@ -50,6 +53,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             setUpStatusItem()
             lamp.refresh()
             lamp.poll(every: closedPanelPoll)
+            prefs.onChange = { [weak self] in self?.autopilot.settingsChanged() }
+            autopilot.start()
         }
     }
 
@@ -76,7 +81,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private var panel: LampPanel {
-        LampPanel(lamp: lamp, quit: { NSApp.terminate(nil) })
+        LampPanel(
+            lamp: lamp,
+            autopilot: autopilot,
+            openSettings: { [weak self] in
+                self?.popover.performClose(nil)
+                self?.settingsWindow.show()
+            },
+            quit: { NSApp.terminate(nil) }
+        )
     }
 
     @objc private func togglePanel() {

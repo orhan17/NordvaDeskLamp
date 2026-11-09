@@ -12,6 +12,18 @@ the lamp is on.
 
 <p align="center"><img src="docs/panel.png" width="300" alt="The menu bar panel"></p>
 
+- **Scenes** in one click: Work, Reading, Evening and Night.
+- **Follows the time of day:** bright and cool for work during the day, warmer in the evening,
+  warm and dim at night, easing in over an hour. It only shapes the light while the lamp is on,
+  never switches it on by the clock, and steps aside until the next phase once you move a slider
+  or pick a scene.
+- **Follows your Mac:** lock it or let it sleep and the lamp goes off; unlock and it comes back,
+  but only if the app was the one that turned it off.
+- **Call light:** when any app turns a camera on, the lamp gives bright, neutral light on your
+  face, then goes back to how it was.
+
+Each of these can be turned off in **Settings…**, and the day, evening and night times are yours to set.
+
 Tested with the **Mi LED Desk Lamp Pro (MJTD02YL)**. Other Xiaomi lamps made by Yeelight
 that speak the same local protocol will likely work too.
 
@@ -25,8 +37,9 @@ Works on macOS 13 Ventura or later, Apple Silicon or Intel.
    registered with Apple. Click **Done**, then go to **System Settings → Privacy & Security**,
    scroll down and click **Open Anyway**. This is needed only once.
 3. **Get the lamp's token** (a one-time step, see below) and add it to the Keychain.
-4. **Click the lamp icon** in the menu bar → **Settings…**, enter the lamp's address and click
-   **Connect**. Allow access to the local network and to the Keychain item when macOS asks.
+4. **Click the lamp icon** in the menu bar → **Settings…**, enter the lamp's address under
+   **Lamp** and click **Connect**. Allow access to the local network and to the Keychain item
+   when macOS asks.
 
 ### The lamp's token
 
@@ -77,7 +90,8 @@ macOS applies the app's own local network permission):
 | Flag | What it does |
 |------|--------------|
 | `--check` | connects, prints the lamp's state and quits |
-| `--debug` | logs every command and reply |
+| `--debug` | logs every command and reply, automation events and the camera |
+| `--camera-check` | prints which cameras the app sees and whether one is in use |
 | `--panel-snapshot <path>` | renders the panel to a PNG |
 
 ## How it works
@@ -96,6 +110,11 @@ first gets the lamp's id and clock. Commands are `get_prop`, `set_power`, `set_b
 | `Sources/NordvaDeskLamp/Lamp.swift` | lamp state for the panel; sends only the latest slider value |
 | `Sources/NordvaDeskLamp/LampPanel.swift` | the SwiftUI panel |
 | `Sources/NordvaDeskLamp/LampToken.swift` | reads the token from the Keychain |
+| `Sources/NordvaDeskLampCore/DaySchedule.swift` | the time-of-day curve, tested |
+| `Sources/NordvaDeskLampCore/LightSetting.swift` | brightness and temperature, the scenes |
+| `Sources/NordvaDeskLamp/Autopilot.swift` | time of day, Mac lock and sleep, the call light |
+| `Sources/NordvaDeskLamp/CameraMonitor.swift` | whether any app is using a camera |
+| `Sources/NordvaDeskLamp/SettingsWindow.swift` | the settings window |
 
 ## Pitfalls
 
@@ -109,6 +128,13 @@ first gets the lamp's id and clock. Commands are `get_prop`, `set_power`, `set_b
   otherwise, about 100 KB an hour, all of it inside your home network. Turn off
   **Keep the menu bar icon up to date** in Settings and nothing is sent while the panel is closed. Readings that arrive within 1.5 s of your own change are ignored, or a reading
   taken before your change reached the lamp would snap the slider back.
+- **Automation must not fight you.** Moving a slider or picking a scene pauses the time-of-day
+  schedule until its next phase, and the schedule never turns the lamp on by itself.
+- **The camera check needs no camera permission.** CoreMediaIO reports whether each camera is
+  "running somewhere" without the app opening it.
+- **Sleep cuts the network almost at once.** On sleep the lamp is switched off with a blocking
+  call that waits for the lamp's reply; after wake the app waits a moment for Wi-Fi before
+  switching it back on.
 - **Slider drags would flood the lamp.** Every slider tick would be a network request, so only
   the latest value per command is sent, at most about every 150 ms.
 - **An ad-hoc signature loses permissions on every rebuild.** `build.sh` pins the signature's
