@@ -23,6 +23,10 @@ final class Lamp: ObservableObject {
     @Published var host: String {
         didSet { UserDefaults.standard.set(host, forKey: "host") }
     }
+    /// Poll while the panel is closed, so the menu bar icon follows the lamp's own button.
+    @Published var backgroundUpdates: Bool {
+        didSet { UserDefaults.standard.set(backgroundUpdates, forKey: "backgroundUpdates") }
+    }
 
     private let client = MiioClient()
     private let queue = DispatchQueue(label: "nordvadesklamp.miio")
@@ -37,6 +41,7 @@ final class Lamp: ObservableObject {
 
     init() {
         host = UserDefaults.standard.string(forKey: "host") ?? ""
+        backgroundUpdates = UserDefaults.standard.object(forKey: "backgroundUpdates") as? Bool ?? true
     }
 
     func refresh(then done: (() -> Void)? = nil) {

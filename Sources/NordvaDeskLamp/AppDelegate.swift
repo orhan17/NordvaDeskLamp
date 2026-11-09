@@ -10,7 +10,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private static let openPanelPoll: TimeInterval = 1
-    private static let closedPanelPoll: TimeInterval = 10
+    private static let backgroundPoll: TimeInterval = 10
+
+    private var closedPanelPoll: TimeInterval? {
+        lamp.backgroundUpdates ? Self.backgroundPoll : nil
+    }
 
     private let mode: Mode
     private let lamp = Lamp()
@@ -45,7 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         case .normal:
             setUpStatusItem()
             lamp.refresh()
-            lamp.poll(every: Self.closedPanelPoll)
+            lamp.poll(every: closedPanelPoll)
         }
     }
 
@@ -87,11 +91,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     func popoverDidShow(_ notification: Notification) {
+        Log.debug("panel opened")
         lamp.poll(every: Self.openPanelPoll)
     }
 
     func popoverDidClose(_ notification: Notification) {
-        lamp.poll(every: Self.closedPanelPoll)
+        Log.debug("panel closed, background polling \(closedPanelPoll.map { "every \(Int($0)) s" } ?? "off")")
+        lamp.poll(every: closedPanelPoll)
     }
 
     /// `--panel-snapshot <path>`: renders the panel to a PNG without showing it.

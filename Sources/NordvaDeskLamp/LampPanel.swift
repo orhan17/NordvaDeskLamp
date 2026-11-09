@@ -101,6 +101,13 @@ struct LampPanel: View {
             )
             .font(.caption)
             .foregroundStyle(lamp.hasToken ? Color.green : Color.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Toggle("Keep the menu bar icon up to date", isOn: $lamp.backgroundUpdates)
+                Text("Checks the lamp every 10 s while this panel is closed. Off: no traffic until you open it.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Toggle("Launch at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
             if let loginError {
                 Text(loginError).font(.caption).foregroundStyle(.red)

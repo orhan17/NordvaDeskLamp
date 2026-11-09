@@ -5,6 +5,7 @@ enum Log {
 
     static func debug(_ message: @autoclosure () -> String) {
         guard isEnabled else { return }
-        FileHandle.standardError.write(Data((message() + "\n").utf8))
+        let time = String(format: "%.1f", ProcessInfo.processInfo.systemUptime)
+        FileHandle.standardError.write(Data(("[\(time)] " + message() + "\n").utf8))
     }
 }

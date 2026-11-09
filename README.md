@@ -106,7 +106,8 @@ first gets the lamp's id and clock. Commands are `get_prop`, `set_power`, `set_b
   readable message.
 - **The lamp never reports changes on its own.** The local protocol has no notifications, so
   the app asks for the state every second while the panel is open and every 10 seconds
-  otherwise. Readings that arrive within 1.5 s of your own change are ignored, or a reading
+  otherwise, about 100 KB an hour, all of it inside your home network. Turn off
+  **Keep the menu bar icon up to date** in Settings and nothing is sent while the panel is closed. Readings that arrive within 1.5 s of your own change are ignored, or a reading
   taken before your change reached the lamp would snap the slider back.
 - **Slider drags would flood the lamp.** Every slider tick would be a network request, so only
   the latest value per command is sent, at most about every 150 ms.
