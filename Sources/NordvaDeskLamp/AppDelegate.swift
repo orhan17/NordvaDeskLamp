@@ -1,17 +1,22 @@
 import AppKit
+import Combine
 import SwiftUI
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     enum Mode {
         case normal
         case check
         case snapshot(String)
     }
 
+    private static let openPanelPoll: TimeInterval = 1
+    private static let closedPanelPoll: TimeInterval = 10
+
     private let mode: Mode
     private let lamp = Lamp()
     private let popover = NSPopover()
     private var statusItem: NSStatusItem?
+    private var iconUpdates: AnyCancellable?
 
     init(mode: Mode) {
         self.mode = mode
@@ -40,18 +45,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .normal:
             setUpStatusItem()
             lamp.refresh()
+            lamp.poll(every: Self.closedPanelPoll)
         }
     }
 
     private func setUpStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "lamp.desk", accessibilityDescription: "NordvaDeskLamp")
         item.button?.target = self
         item.button?.action = #selector(togglePanel)
         statusItem = item
 
+        iconUpdates = lamp.$isOn.removeDuplicates().sink { [weak item] isOn in
+            item?.button?.image = NSImage(
+                systemSymbolName: isOn ? "lamp.desk.fill" : "lamp.desk",
+                accessibilityDescription: isOn ? "Desk lamp on" : "Desk lamp off"
+            )
+        }
+
         popover.behavior = .transient
-        popover.contentViewController = NSHostingController(rootView: panel)
+        popover.delegate = self
+        // Without this the popover keeps the size the panel had when it was created and
+        // clips the panel once its content grows (status text, settings section).
+        let host = NSHostingController(rootView: panel)
+        host.sizingOptions = .preferredContentSize
+        popover.contentViewController = host
     }
 
     private var panel: LampPanel {
@@ -67,6 +84,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             NSApp.activate(ignoringOtherApps: true)
         }
+    }
+
+    func popoverDidShow(_ notification: Notification) {
+        lamp.poll(every: Self.openPanelPoll)
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        lamp.poll(every: Self.closedPanelPoll)
     }
 
     /// `--panel-snapshot <path>`: renders the panel to a PNG without showing it.

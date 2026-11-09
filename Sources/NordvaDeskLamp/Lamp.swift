@@ -31,6 +31,10 @@ final class Lamp: ObservableObject {
     private var pending: [(method: String, params: [Any])] = []
     private var draining = false
 
+    private var pollTimer: Timer?
+    private var polling = false
+    private var lastLocalChange = Date.distantPast
+
     init() {
         host = UserDefaults.standard.string(forKey: "host") ?? ""
     }
@@ -57,21 +61,61 @@ final class Lamp: ObservableObject {
         }
     }
 
+    /// The lamp can't report changes made with its own button, so its state is polled.
+    /// `nil` stops polling.
+    func poll(every interval: TimeInterval?) {
+        pollTimer?.invalidate()
+        pollTimer = nil
+        guard let interval else { return }
+        pollTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            self?.pollOnce()
+        }
+    }
+
     func setPower(_ on: Bool) {
+        lastLocalChange = Date()
         isOn = on
         enqueue("set_power", [on ? "on" : "off", "smooth", 300])
     }
 
     func setBrightness(_ value: Double) {
+        lastLocalChange = Date()
         brightness = value
         if !isOn { setPower(true) }
         enqueue("set_bright", [Int(value.rounded()), "smooth", 200])
     }
 
     func setTemperature(_ value: Double) {
+        lastLocalChange = Date()
         temperature = value
         if !isOn { setPower(true) }
         enqueue("set_ct_abx", [Int(value.rounded()), "smooth", 200])
+    }
+
+    private func pollOnce() {
+        guard !polling, lock.withLock({ pending.isEmpty && !draining }) else { return }
+        polling = true
+        let host = host
+        queue.async { [self] in
+            let result = Result { () -> LampState in
+                try prepare(host: host)
+                return try readState()
+            }
+            DispatchQueue.main.async { [self] in
+                polling = false
+                hasToken = token != nil
+                switch result {
+                case let .success(state):
+                    // A reading taken before the user's last change reached the lamp would undo it on screen.
+                    if Date().timeIntervalSince(lastLocalChange) > 1.5 {
+                        apply(state)
+                    }
+                    status = .online
+                case let .failure(error):
+                    status = .failed(error.localizedDescription)
+                }
+            }
+        }
     }
 
     private func apply(_ state: LampState) {

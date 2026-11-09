@@ -6,7 +6,9 @@
 
 NordvaDeskLamp is a tiny, free menu bar app for macOS. Click the lamp icon and you get a
 switch, a brightness slider and a warm-to-cool color temperature slider. It talks to the
-lamp directly over your home Wi-Fi: no cloud, no phone, instant response.
+lamp directly over your home Wi-Fi: no cloud, no phone, instant response. Turn the lamp on
+with its own button and the panel follows within a second; the menu bar icon is filled while
+the lamp is on.
 
 <p align="center"><img src="docs/panel.png" width="300" alt="The menu bar panel"></p>
 
@@ -102,6 +104,10 @@ first gets the lamp's id and clock. Commands are `get_prop`, `set_power`, `set_b
 - **Local network permission.** macOS blocks apps from talking to devices on your network until
   you allow it. A denied permission shows up as "no route to host", which the app turns into a
   readable message.
+- **The lamp never reports changes on its own.** The local protocol has no notifications, so
+  the app asks for the state every second while the panel is open and every 10 seconds
+  otherwise. Readings that arrive within 1.5 s of your own change are ignored, or a reading
+  taken before your change reached the lamp would snap the slider back.
 - **Slider drags would flood the lamp.** Every slider tick would be a network request, so only
   the latest value per command is sent, at most about every 150 ms.
 - **An ad-hoc signature loses permissions on every rebuild.** `build.sh` pins the signature's
